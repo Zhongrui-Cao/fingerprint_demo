@@ -5,17 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Browser Fingerprinting Demo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
     <h2>Browser Fingerprinting Demo</h2>
     <label for="username">Enter your username:</label>
     <input type="text" id="username" name="username">
     <button onclick="getFingerprint()">Fingerprint Me!!</button>
-    <p>make your username unique! that's how we track actual "uniqueness"</p>
+    <p>make your username unique! that's how we track "actual" uniqueness</p>
     <p>make sure you use the same username per browser</p>
     <p>Your Fingerprint Hash: <span id="uniqueId"></span></p>
     <p>Your Fingerprint:</p>
     <p id="fingerprint"></p>
+    <p>Your Canvas Fingerprint Image:</p>
+    <img id="canvasFingerprintImage">
 
     <script>
         async function getFingerprint() {
@@ -25,25 +28,28 @@
                 return;
             }
 
-            // Collecting various attributes for fingerprinting
+            let canvasFingerprint = getCanvasFingerprint();
+            let hashedCanvasFingerprint = CryptoJS.SHA256(canvasFingerprint).toString();
             let fingerprintData = {
                 userAgent: navigator.userAgent,
                 language: navigator.language,
                 platform: navigator.platform,
                 hardwareConcurrency: navigator.hardwareConcurrency,
+                deviceMemory: navigator.deviceMemory || 'Not available',
                 screenResolution: `${screen.width}x${screen.height}`,
+                touchSupport: getTouchSupport(),
                 colorDepth: screen.colorDepth,
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 cookiesEnabled: navigator.cookieEnabled,
                 javaEnabled: navigator.javaEnabled(),
                 plugins: getPlugins(),
-                canvasFingerprint: getCanvasFingerprint(),
                 webGLRenderer: getWebGLRenderer(),
+                canvasFingerprintHash: hashedCanvasFingerprint,
             };
 
             // Send the fingerprint data to the server
             try {
-                const response = await axios.post('http://localhost:3000/fingerprint', { username, fingerprintData });
+                const response = await axios.post('http://3.20.242.75:3000/fingerprint', { username, fingerprintData });
                 const uniqueId = response.data.uniqueId;
 
                 // Displaying the fingerprint hash
@@ -54,6 +60,7 @@
 
             // Displaying the fingerprint data
             document.getElementById("fingerprint").innerText = JSON.stringify(fingerprintData, null, 2);
+            document.getElementById("canvasFingerprintImage").src = canvasFingerprint;
         }
 
         // Function to get browser plugins
@@ -65,14 +72,22 @@
             return plugins;
         }
 
-        // Function to get canvas fingerprint
+        // Function to get canvas fingerprint, taken from browserleaks.com
         function getCanvasFingerprint() {
             let canvas = document.createElement('canvas');
             let ctx = canvas.getContext('2d');
-            ctx.textBaseline = 'top';
-            ctx.font = '14px Arial';
-            ctx.fillStyle = '#f60';
-            ctx.fillText('Browser Fingerprint', 2, 2);
+            var txt = "Thisisyour,canvas <fingerprint>! 7.82";
+            ctx.textBaseline = "top";
+            // The most common type
+            ctx.font = "14px 'Arial'";
+            ctx.textBaseline = "alphabetic";
+            ctx.fillStyle = "#f60";
+            ctx.fillRect(125,1,62,20);
+            // Some tricks for color mixing to increase the difference in rendering
+            ctx.fillStyle = "#069";
+            ctx.fillText(txt, 2, 15);
+            ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+            ctx.fillText(txt, 4, 17);
             return canvas.toDataURL();
         }
 
@@ -87,6 +102,11 @@
                 return 'Not available';
             }
         }
+
+        function getTouchSupport() {
+            return 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+        }
+
     </script>
 </body>
 </html>
